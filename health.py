@@ -4,17 +4,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.exceptions import ConvergenceWarning
 from datetime import datetime
 import warnings
 import requests
 
 # --- CONFIGURATION ---
-warnings.filterwarnings("ignore", category=ConvergenceWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore")
 
 st.set_page_config(
     page_title="Health Risk Predictor",
@@ -190,7 +185,6 @@ else:
 
     with col3:
         st.subheader("🏃 Lifestyle")
-        # Converting Daily activity (from reg) to Weekly estimation
         default_activity = int(st.session_state.reg_activity * 7) 
         if default_activity > 15: default_activity = 15 
 
@@ -204,49 +198,39 @@ else:
         with c2:
             alcohol = st.checkbox("Alcohol?", value=st.session_state.reg_alcohol)
 
+    # --- OPTIMIZED MODEL LOGIC (NO SKLEARN) ---
     # Encodings
-    gender_encoded = 1 if gender == "Male" else 0
-    smoking_encoded = 1 if smoking else 0
-    alcohol_encoded = 1 if alcohol else 0
+    gender_val = 1 if gender == "Male" else 0
+    smoke_val = 1 if smoking else 0
+    alc_val = 1 if alcohol else 0
 
-    input_features = pd.DataFrame([[
-        age, gender_encoded, weight, height, bmi, glucose, bp_systolic, bp_diastolic,
-        cholesterol, heart_rate, physical_activity, smoking_encoded, alcohol_encoded, sleep_hours
-    ]], columns=[
-        "Age", "Gender", "Weight", "Height", "BMI", "Glucose", "SystolicBP", 
-        "DiastolicBP", "Cholesterol", "HeartRate", "PhysicalActivity", "Smoking", 
-        "Alcohol", "SleepHours"
+    # 1. Collect features into a numpy array
+    input_data = np.array([
+        age, gender_val, weight, height, bmi, glucose, bp_systolic, bp_diastolic,
+        cholesterol, heart_rate, physical_activity, smoke_val, alc_val, sleep_hours
     ])
 
-    # --- MODEL LOGIC ---
-    np.random.seed(42) 
-    X_train = pd.DataFrame({
-        "Age": np.random.randint(18, 80, 500),
-        "Gender": np.random.randint(0, 2, 500),
-        "Weight": np.random.randint(45, 110, 500),
-        "Height": np.random.randint(150, 190, 500),
-        "BMI": np.random.uniform(18, 35, 500),
-        "Glucose": np.random.randint(70, 200, 500),
-        "SystolicBP": np.random.randint(100, 180, 500),
-        "DiastolicBP": np.random.randint(60, 110, 500),
-        "Cholesterol": np.random.randint(150, 300, 500),
-        "HeartRate": np.random.randint(55, 100, 500),
-        "PhysicalActivity": np.random.randint(0, 10, 500),
-        "Smoking": np.random.randint(0, 2, 500),
-        "Alcohol": np.random.randint(0, 2, 500),
-        "SleepHours": np.random.randint(4, 10, 500),
-    })
-    y_train = np.random.randint(0, 2, 500)
+    # 2. Hardcoded Normalization Parameters (derived from the previous random ranges)
+    # These represent the 'averages' and 'spread' of the data the model expects
+    means = np.array([50, 0.5, 75, 170, 26, 135, 140, 85, 225, 77, 5, 0.5, 0.5, 7]) 
+    stds = np.array([18, 0.5, 19, 12, 5, 38, 23, 14, 43, 13, 3, 0.5, 0.5, 2])
+    
+    # 3. Standardize input (Input - Mean) / Std
+    input_scaled = (input_data - means) / stds
 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_train)
-    model = LogisticRegression(max_iter=500)
-    model.fit(X_scaled, y_train)
+    # 4. Generate Random Weights (Deterministic seed)
+    # This replicates the 'random model' behavior from the previous code without training it.
+    np.random.seed(42)
+    weights = np.random.randn(14)
+    bias = np.random.randn(1)
 
-    # Prediction
-    input_scaled = scaler.transform(input_features)
-    risk_prob = model.predict_proba(input_scaled)[0][1]
-    prediction = model.predict(input_scaled)[0]
+    # 5. Calculate Probability (Sigmoid Function)
+    logit = np.dot(input_scaled, weights) + bias
+    risk_prob = 1 / (1 + np.exp(-logit))
+    risk_prob = float(risk_prob[0]) # Convert to standard float
+    
+    # Threshold
+    prediction = 1 if risk_prob > 0.5 else 0
 
     st.markdown("---")
     
