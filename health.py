@@ -1,4 +1,4 @@
-# to run the project write in terminal (streamlit run "file path")
+# to run the project write in terminal (streamlit run app.py)
 # Code By Anshuman Sinha
 
 import streamlit as st
@@ -7,8 +7,6 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.exceptions import ConvergenceWarning
-import matplotlib.pyplot as plt
-import seaborn as sns
 from datetime import datetime
 import warnings
 import requests
@@ -49,7 +47,6 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- FUNCTION: SEND DATA ---
-# Updated to accept all new registration fields
 def send_to_getform(name, age, phone, height, weight, smoker, alcohol, activity):
     url = "https://getform.io/f/allgjxja"
     data = {
@@ -74,7 +71,7 @@ if "registered" not in st.session_state:
     st.session_state.registered = False
 
 # ==========================================
-# 1. REGISTRATION SCREEN (UPDATED)
+# 1. REGISTRATION SCREEN
 # ==========================================
 if not st.session_state.registered:
     col1, col2, col3 = st.columns([1, 2, 1]) 
@@ -91,7 +88,6 @@ if not st.session_state.registered:
             with c_age:
                 reg_age = st.number_input("Age", min_value=1, max_value=120, value=30)
             with c_phone:
-                # Max chars set to 10 for visual cue, validation logic is below
                 phone = st.text_input("Phone Number (10 digits)", max_chars=10, placeholder="e.g. 9876543210")
 
             # Physical Stats
@@ -124,11 +120,9 @@ if not st.session_state.registered:
                 elif len(phone) != 10 or not phone.isdigit():
                     st.error("⚠️ Invalid Phone Number: Must be exactly 10 digits.")
                 else:
-                    # Proceed if validation passes
                     with st.spinner("Registering..."):
                         success = send_to_getform(name, reg_age, phone, reg_height, reg_weight, reg_smoker, reg_alcohol, reg_activity)
                         if success:
-                            # Save all inputs to session state to use in Dashboard
                             st.session_state.registered = True
                             st.session_state.name = name
                             st.session_state.reg_age = reg_age
@@ -168,13 +162,11 @@ else:
 
     with col1:
         st.subheader("👤 Biometrics")
-        # Pre-filling with session state data from registration
         age = st.slider("Current Age", 10, 100, int(st.session_state.reg_age))
         gender = st.radio("Gender", ["Male", "Female"], horizontal=True)
         height = st.number_input("Height (cm)", 120.0, 300.0, float(st.session_state.reg_height))
         weight = st.number_input("Weight (kg)", 30.0, 200.0, float(st.session_state.reg_weight))
         
-        # Calculate BMI
         bmi = round(weight / ((height / 100) ** 2), 2)
         if bmi < 18.5:
             bmi_status = "Underweight"
@@ -198,9 +190,9 @@ else:
 
     with col3:
         st.subheader("🏃 Lifestyle")
-        # Converting Daily activity (from reg) to Weekly estimation for the model logic
+        # Converting Daily activity (from reg) to Weekly estimation
         default_activity = int(st.session_state.reg_activity * 7) 
-        if default_activity > 15: default_activity = 15 # Cap for slider
+        if default_activity > 15: default_activity = 15 
 
         physical_activity = st.slider("Activity (hrs/week)", 0, 15, default_activity)
         sleep_hours = st.slider("Sleep (hrs/day)", 0, 12, 7)
@@ -208,10 +200,8 @@ else:
         st.write("Habits:")
         c1, c2 = st.columns(2)
         with c1:
-            # Pre-filled from registration
             smoking = st.checkbox("Smoker?", value=st.session_state.reg_smoker)
         with c2:
-            # Pre-filled from registration
             alcohol = st.checkbox("Alcohol?", value=st.session_state.reg_alcohol)
 
     # Encodings
@@ -228,7 +218,7 @@ else:
         "Alcohol", "SleepHours"
     ])
 
-    # --- MODEL LOGIC (Hidden) ---
+    # --- MODEL LOGIC ---
     np.random.seed(42) 
     X_train = pd.DataFrame({
         "Age": np.random.randint(18, 80, 500),
@@ -262,8 +252,6 @@ else:
     
     # --- RESULTS SECTION ---
     st.subheader("📊 Analysis Results")
-    
-    # Centering the results for a cleaner look
     res_c1, res_c2, res_c3 = st.columns([1, 2, 1])
     
     with res_c2:
